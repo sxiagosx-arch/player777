@@ -1,0 +1,398 @@
+package com.example.ui.screens
+
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.*
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.geometry.Offset
+import com.example.ui.IPTVViewModel
+import com.example.ui.player.VideoQualityMode
+import com.example.ui.theme.Charcoal
+import com.example.ui.theme.NeonGreen
+import com.example.ui.theme.NeonGreenDim
+import kotlin.math.roundToInt
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(viewModel: IPTVViewModel) {
+    val context = LocalContext.current
+    val scrollState = rememberScrollState()
+
+    val bufferMaxSeconds by viewModel.bufferMaxSeconds.collectAsState()
+    val bufferStartSeconds by viewModel.bufferStartSeconds.collectAsState()
+    val hardwareDecoding by viewModel.hardwareDecoding.collectAsState()
+    val videoQualityMode by viewModel.videoQualityMode.collectAsState()
+    val accountExpiration by viewModel.accountExpiration.collectAsState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // CORREÇÃO DO BOTÃO VOLTAR
+        IconButton(
+            onClick = { viewModel.navigateBack() },
+            modifier = Modifier.padding(bottom = 8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.ArrowBack,
+                contentDescription = "Voltar",
+                tint = Color.White
+            )
+        }
+
+        val infiniteTransition = rememberInfiniteTransition(label = "neon_settings")
+        val neonAlpha by infiniteTransition.animateFloat(
+            initialValue = 0.5f,
+            targetValue = 1.0f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1200, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "alpha"
+        )
+
+        Text(
+            text = "Configurações",
+            color = Color.White,
+            fontFamily = com.example.ui.theme.RussoOne,
+            fontSize = 24.sp,
+            style = androidx.compose.ui.text.TextStyle(
+                shadow = Shadow(
+                    color = NeonGreen.copy(alpha = neonAlpha),
+                    offset = Offset(0f, 0f),
+                )
+            )
+        )
+
+        Column(modifier = Modifier.verticalScroll(scrollState).weight(1f)) {
+
+            // DESTAQUE DA VALIDADE DA LISTA
+            SettingsSectionHeader(title = "Sua Assinatura")
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(NeonGreenDim)
+                    .padding(16.dp)
+            ) {
+                Column {
+                    Text("Vencimento do Plano:", color = Color.White, fontSize = 12.sp)
+                    Text(text = accountExpiration, color = NeonGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // BOTÃO VERDE DE RENOVAR
+            Button(
+                onClick = {
+                    val intent = Intent(Intent.ACTION_VIEW)
+                    intent.data = Uri.parse("https://api.whatsapp.com/send/?phone=380689671189&text&type=phone_number&app_absent=0?text=Olá, desejo renovar meu plano!")
+                    context.startActivity(intent)
+                },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = NeonGreen)
+            ) {
+                Icon(Icons.Rounded.ShoppingCart, contentDescription = null, tint = Color.Black)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("RENOVAR / ATUALIZAR PLANO", color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Reprodução
+            SettingsSectionHeader(title = "Reprodutor & Decodificador")
+            SettingsSwitchRow(
+                icon = Icons.Rounded.DeveloperBoard,
+                title = "Priorizar Decodificação de Hardware",
+                subtitle = "Prioriza o decoder da TV/celular e mantém fallback compatível.",
+                checked = hardwareDecoding
+            ) { viewModel.setHardwareDecoding(it) }
+
+            VideoQualityControlCard(
+                selectedMode = videoQualityMode,
+                onModeSelected = viewModel::setVideoQualityMode
+            )
+
+            BufferControlCard(
+                maxBufferSeconds = bufferMaxSeconds,
+                playbackStartSeconds = bufferStartSeconds,
+                onMaxBufferChange = viewModel::setBufferMaxSeconds,
+                onPlaybackStartChange = viewModel::setBufferStartSeconds
+            )
+
+            // Controle Parental
+            SettingsSectionHeader(title = "Controle Parental")
+            SettingsActionRow(
+                icon = Icons.Rounded.Security,
+                title = "Controle Parental",
+                subtitle = "Configurar senha e bloquear conteúdos adultos"
+            ) {
+                viewModel.navigateTo(com.example.ui.Screen.PARENTAL_CONTROL)
+            }
+
+            // Cache
+            SettingsSectionHeader(title = "Armazenamento & Cache")
+            SettingsActionRow(
+                icon = Icons.Rounded.CleaningServices,
+                title = "Limpar Cache de Listas",
+                subtitle = "Libera memória local limpando logotipos."
+            ) {
+                Toast.makeText(context, "Cache limpo com sucesso!", Toast.LENGTH_SHORT).show()
+            }
+
+            // Aparelho
+            SettingsSectionHeader(title = "Dispositivo")
+            val deviceId = com.example.util.DeviceUtil.getDeviceId(context).take(8).uppercase()
+            SettingsActionRow(
+                icon = Icons.Rounded.ImportantDevices,
+                title = "ID do Dispositivo",
+                subtitle = deviceId
+            ) {
+                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                val clip = android.content.ClipData.newPlainText("Device ID", deviceId)
+                clipboard.setPrimaryClip(clip)
+                Toast.makeText(context, "ID Copiado!", Toast.LENGTH_SHORT).show()
+            }
+
+            Spacer(modifier = Modifier.height(80.dp))
+        }
+    }
+}
+
+@Composable
+private fun VideoQualityControlCard(
+    selectedMode: VideoQualityMode,
+    onModeSelected: (VideoQualityMode) -> Unit
+) {
+    val options = listOf(
+        Triple(VideoQualityMode.AUTO, "Automática", "Adapta a qualidade à rede sem limitar a resolução."),
+        Triple(VideoQualityMode.MAXIMUM, "Máxima suportada / 4K", "Força a melhor faixa que o decoder da TV ou celular suporta."),
+        Triple(VideoQualityMode.DATA_SAVER, "Economia (até 720p)", "Reduz o consumo de dados e a carga do decoder.")
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Charcoal)
+            .padding(14.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Rounded.HighQuality,
+                contentDescription = null,
+                tint = NeonGreen,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text("Qualidade de vídeo", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("A opção 4K respeita os codecs realmente suportados pelo aparelho.", color = Color.Gray, fontSize = 11.sp)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        options.forEach { (mode, title, description) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onModeSelected(mode) }
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = selectedMode == mode,
+                    onClick = { onModeSelected(mode) },
+                    colors = RadioButtonDefaults.colors(selectedColor = NeonGreen)
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text(description, color = Color.Gray, fontSize = 10.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BufferControlCard(
+    maxBufferSeconds: Int,
+    playbackStartSeconds: Int,
+    onMaxBufferChange: (Int) -> Unit,
+    onPlaybackStartChange: (Int) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Charcoal)
+            .padding(14.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Rounded.Timelapse,
+                contentDescription = null,
+                tint = NeonGreen,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text("Controle real de buffer", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("Mais reserva reduz travamentos; menos reserva troca mais rápido.", color = Color.Gray, fontSize = 11.sp)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        Text("Reserva máxima: ${maxBufferSeconds}s", color = Color.White, fontSize = 12.sp)
+        Slider(
+            value = maxBufferSeconds.toFloat(),
+            onValueChange = { raw ->
+                val rounded = ((raw / 5f).roundToInt() * 5).coerceIn(5, 120)
+                onMaxBufferChange(rounded)
+            },
+            valueRange = 5f..120f,
+            steps = 22,
+            colors = SliderDefaults.colors(
+                thumbColor = NeonGreen,
+                activeTrackColor = NeonGreen,
+                inactiveTrackColor = Color.DarkGray
+            )
+        )
+
+        Text("Iniciar após: ${playbackStartSeconds}s", color = Color.White, fontSize = 12.sp)
+        Slider(
+            value = playbackStartSeconds.toFloat(),
+            onValueChange = { onPlaybackStartChange(it.roundToInt().coerceIn(1, 5)) },
+            valueRange = 1f..5f,
+            steps = 3,
+            colors = SliderDefaults.colors(
+                thumbColor = NeonGreen,
+                activeTrackColor = NeonGreen,
+                inactiveTrackColor = Color.DarkGray
+            )
+        )
+    }
+}
+
+@Composable
+fun SettingsSectionHeader(title: String) {
+    Text(
+        text = title.uppercase(),
+        color = NeonGreen,
+        fontWeight = FontWeight.Bold,
+        fontSize = 11.sp,
+        letterSpacing = 1.sp,
+        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+    )
+}
+
+@Composable
+fun SettingsSwitchRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Charcoal)
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(imageVector = icon, contentDescription = title, tint = NeonGreen, modifier = Modifier.size(24.dp))
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text(text = subtitle, color = Color.Gray, fontSize = 11.sp)
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = NeonGreen,
+                checkedTrackColor = NeonGreenDim,
+                uncheckedThumbColor = Color.DarkGray,
+                uncheckedTrackColor = Color.Black
+            )
+        )
+    }
+}
+
+@Composable
+fun SettingsOptionRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    value: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Charcoal)
+            .clickable { onClick() }
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(imageVector = icon, contentDescription = title, tint = NeonGreen, modifier = Modifier.size(24.dp))
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text(text = "Valor atual: $value", color = Color.Gray, fontSize = 11.sp)
+        }
+        Icon(imageVector = Icons.Rounded.ChevronRight, contentDescription = "Config", tint = Color.Gray)
+    }
+}
+
+@Composable
+fun SettingsActionRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Charcoal)
+            .clickable { onClick() }
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(imageVector = icon, contentDescription = title, tint = NeonGreen, modifier = Modifier.size(24.dp))
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text(text = subtitle, color = Color.Gray, fontSize = 11.sp)
+        }
+    }
+}

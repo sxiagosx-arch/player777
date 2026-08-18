@@ -1,0 +1,10 @@
+- [ ] Update `IPTVViewModel.kt`
+    - [ ] Add dashboard content StateFlows (`topMovies`, `topSeries`, etc.)
+    - [ ] Implement `featuredPriority` logic
+    - [ ] Update `refreshContents` to pre-calculate dashboard items
+- [ ] Update `MainDashboard.kt`
+    - [ ] Collect pre-calculated flows from ViewModel
+    - [ ] Remove heavy filtering/sorting from Composable
+    - [ ] Optimize `SearchResultsContent` or move it to ViewModel
+- [ ] Verify fix
+    - [ ] Run `./gradlew :app:compileDebugKotlin`
